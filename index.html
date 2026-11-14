@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#050914">
+  <title>Neon Vanguard</title>
+  <style>
+    :root{color-scheme:dark;--cyan:#62eaff;--mint:#73ffc2;--panel:#07101df2}
+    *{box-sizing:border-box}
+    html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#050914;color:#eef7ff;font-family:system-ui,Arial,sans-serif}
+    #stars{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+    #gameFrame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#050914;z-index:1}
+    .chrome{position:absolute;inset:0;z-index:5;pointer-events:none}
+    .corner-tools{position:absolute;top:max(14px,env(safe-area-inset-top));right:max(14px,env(safe-area-inset-right));display:flex;gap:8px;pointer-events:auto}
+    .icon-button{width:42px;height:42px;border:1px solid #62eaff66;border-radius:12px;background:#07101ddd;color:#eafaff;font-size:19px;cursor:pointer;box-shadow:0 0 18px #62eaff1c;transition:transform .2s,border-color .2s,background .2s}
+    .icon-button:hover{transform:translateY(-2px);border-color:var(--cyan);background:#102238}
+    #pauseButton{display:none}
+    body.playing #pauseButton{display:block}
+    .screen{position:absolute;inset:0;z-index:10;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 46%,#08172bd9,#020610d9 75%);backdrop-filter:blur(3px);opacity:1;visibility:visible;transition:opacity .42s ease,visibility .42s}
+    .screen.hidden{opacity:0;visibility:hidden;pointer-events:none}
+    .menu-content{width:min(540px,100%);text-align:center;animation:arrive .65s cubic-bezier(.2,.8,.2,1) both}
+    @keyframes arrive{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+    .title-line{width:min(360px,75%);height:2px;margin:0 auto;background:linear-gradient(90deg,transparent,var(--cyan),transparent);box-shadow:0 0 13px var(--cyan)}
+    h1{margin:18px 0;color:var(--cyan);font-size:clamp(34px,8vw,68px);font-weight:900;letter-spacing:.13em;text-transform:uppercase;text-shadow:0 0 10px #62eaffbb,0 0 34px #168cff99;line-height:1.05}
+    .subtitle{margin:18px 0 32px;color:#b9c9dc;font-size:14px;letter-spacing:.08em}
+    .menu-buttons{display:grid;gap:12px;width:min(290px,100%);margin:0 auto}
+    button{font:inherit}
+    .menu-button{min-height:52px;padding:13px 20px;border:1px solid #62eaff66;border-radius:12px;background:linear-gradient(110deg,#0d263aee,#0a1729ee);color:#eafaff;font-weight:800;letter-spacing:.08em;cursor:pointer;transition:transform .2s,border-color .2s,box-shadow .2s,background .2s}
+    .menu-button:hover{transform:translateY(-2px);border-color:var(--cyan);background:#10273a;box-shadow:0 0 22px #62eaff24}
+    .menu-button.primary{background:linear-gradient(110deg,#62eaff,#73ffc2);color:#06121a;border:0;box-shadow:0 0 25px #62eaff35}
+    .menu-button.danger{border-color:#ff718977;color:#ffc2cb}
+    .menu-button.small{min-height:42px;padding:9px 16px;font-size:13px}
+    .content-screen{background:#020711b8}
+    .content-card{width:min(760px,100%);max-height:min(86dvh,900px);overflow:auto;padding:20px;border:1px solid #9bd7ff4a;border-radius:18px;background:var(--panel);box-shadow:0 20px 70px #000b;text-align:center;animation:arrive .3s ease both}
+    .content-card h2{margin:0 0 12px;color:var(--cyan);letter-spacing:.08em}
+    .content-card p{color:#bfccdc}
+    .content-actions{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin-top:18px}
+    .more-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px auto;width:min(480px,100%)}
+    .setting-row{display:flex;align-items:center;justify-content:center;gap:14px;margin:22px auto;padding:16px;border:1px solid #ffffff24;border-radius:12px;background:#ffffff08}
+    .setting-row input{width:min(280px,55vw);accent-color:var(--cyan)}
+    .setting-value{min-width:42px;color:var(--mint);font-variant-numeric:tabular-nums}
+    .explosion{position:absolute;left:50%;top:50%;width:18px;height:18px;border-radius:50%;transform:translate(-50%,-50%);background:#fff;box-shadow:0 0 18px 8px #62eaff,0 0 50px 20px #ff7189;animation:explode .8s ease-out forwards;pointer-events:none}
+    @keyframes explode{0%{opacity:1;transform:translate(-50%,-50%) scale(.25)}35%{opacity:1;transform:translate(-50%,-50%) scale(2.4)}100%{opacity:0;transform:translate(-50%,-50%) scale(6)}}
+    .death-card{animation:arrive .45s ease both}
+    .death-card h2{color:#ff9aaa;text-shadow:0 0 18px #ff315e66}
+    @media(max-width:520px){.screen{padding:16px}.more-grid{grid-template-columns:1fr}.content-card{padding:16px}.subtitle{margin-bottom:24px}.corner-tools{top:max(9px,env(safe-area-inset-top));right:max(9px,env(safe-area-inset-right))}.icon-button{width:38px;height:38px}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+  </style>
+</head>
+<body>
+  <canvas id="stars" aria-hidden="true"></canvas>
+  <iframe id="gameFrame" src="spaces.html" title="Neon Vanguard — jogo"></iframe>
+  <div class="chrome">
+    <div class="corner-tools">
+      <button class="icon-button" id="audioButton" type="button" aria-label="Configurações de áudio" title="Áudio">♫</button>
+      <button class="icon-button" id="fullscreenButton" type="button" aria-label="Tela cheia" title="Tela cheia">⛶</button>
+      <button class="icon-button" id="pauseButton" type="button" aria-label="Pausar jogo" title="Pausar">Ⅱ</button>
+    </div>
+  </div>
+
+  <section class="screen" id="homeScreen" aria-label="Menu principal">
+    <div class="menu-content">
+      <div class="title-line"></div>
+      <h1>Neon<br>Vanguard</h1>
+      <div class="title-line"></div>
+      <p class="subtitle">O universo espera pela sua próxima jogada.</p>
+      <div class="menu-buttons">
+        <button class="menu-button primary" id="playButton" type="button">JOGAR</button>
+        <button class="menu-button" id="shipButton" type="button">MINHA NAVE</button>
+        <button class="menu-button" id="moreButton" type="button">MAIS</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen hidden content-screen" id="shipScreen" aria-label="Minha nave">
+    <div class="content-card">
+      <h2>MINHA NAVE</h2>
+      <p>Melhore os atributos da nave ou escolha uma nova aparência.</p>
+      <div class="content-actions">
+        <button class="menu-button small" data-tab="shop" type="button">Loja de melhorias</button>
+        <button class="menu-button small" data-tab="custom" type="button">Personalização</button>
+      </div>
+      <div class="content-actions"><button class="menu-button small" data-home type="button">Voltar ao início</button></div>
+    </div>
+  </section>
+
+  <section class="screen hidden content-screen" id="moreScreen" aria-label="Mais opções">
+    <div class="content-card">
+      <h2>MAIS</h2>
+      <p>Consulte seu progresso e ajuste os controles.</p>
+      <div class="more-grid">
+        <button class="menu-button small" data-tab="missions" type="button">Missões diárias</button>
+        <button class="menu-button small" data-tab="catalog" type="button">Catálogo</button>
+        <button class="menu-button small" data-tab="achievements" type="button">Conquistas</button>
+        <button class="menu-button small" data-tab="layout" type="button">Controles</button>
+        <button class="menu-button small" data-tab="progress" type="button">Progresso</button>
+      </div>
+      <div class="content-actions"><button class="menu-button small" data-home type="button">Voltar ao início</button></div>
+    </div>
+  </section>
+
+  <section class="screen hidden content-screen" id="settingsScreen" aria-label="Configurações de áudio">
+    <div class="content-card">
+      <h2>ÁUDIO</h2>
+      <p>Ajuste o volume dos efeitos sonoros.</p>
+      <label class="setting-row" for="volumeSlider"><span>Volume</span><input id="volumeSlider" type="range" min="0" max="100" value="70"><span class="setting-value" id="volumeValue">70%</span></label>
+      <div class="content-actions"><button class="menu-button small" id="settingsBack" type="button">Voltar</button></div>
+    </div>
+  </section>
+
+  <section class="screen hidden content-screen" id="pauseScreen" aria-label="Jogo pausado">
+    <div class="content-card">
+      <h2>PARTIDA PAUSADA</h2>
+      <p>Respire. A arena espera por você.</p>
+      <div class="content-actions"><button class="menu-button primary" id="resumeButton" type="button">CONTINUAR</button><button class="menu-button danger" id="quitButton" type="button">DESISTIR</button></div>
+    </div>
+  </section>
+
+  <section class="screen hidden content-screen" id="deathScreen" aria-label="Fim de jogo">
+    <div class="explosion" id="explosion"></div>
+    <div class="content-card death-card" id="deathCard" hidden>
+      <h2>FIM DE JOGO</h2><p id="finalScore"></p>
+      <div class="content-actions"><button class="menu-button primary" id="retryButton" type="button">TENTAR NOVAMENTE</button><button class="menu-button danger" id="deathQuitButton" type="button">DESISTIR</button></div>
+    </div>
+  </section>
+
+  <script>
+    (() => {
+      "use strict";
+      const frame = document.getElementById("gameFrame");
+      const body = document.body;
+      const screens = [...document.querySelectorAll(".screen")];
+      const starsCanvas = document.getElementById("stars");
+      const starsCtx = starsCanvas.getContext("2d");
+      let previousScreen = "homeScreen";
+      let returnScreen = "shipScreen";
+      let deathHandled = false;
+      let stars = [];
+      let volume = 70;
+      try { volume = Number(localStorage.getItem("neonVanguardVolume")) || 70; } catch {}
+
+      const showScreen = id => screens.forEach(screen => screen.classList.toggle("hidden", screen.id !== id));
+      const gameDocument = () => { try { return frame.contentDocument; } catch { return null; } };
+      const gameClick = selector => gameDocument()?.querySelector(selector)?.click();
+      const setGameOverlay = visible => {
+        const overlay = gameDocument()?.getElementById("overlay");
+        if (overlay) overlay.classList.toggle("hidden", !visible);
+      };
+      function resizeStars() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        starsCanvas.width = Math.round(innerWidth * dpr);
+        starsCanvas.height = Math.round(innerHeight * dpr);
+        starsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        stars = Array.from({length: Math.min(150, Math.floor(innerWidth * innerHeight / 8500))}, () => ({x:Math.random()*innerWidth,y:Math.random()*innerHeight,r:Math.random()*1.5+.35,s:Math.random()*26+10,a:Math.random()*.55+.25}));
+      }
+      function animateStars() {
+        starsCtx.clearRect(0,0,innerWidth,innerHeight);
+        for (const star of stars) {
+          star.y += star.s / 60;
+          if (star.y > innerHeight + 3) { star.y = -3; star.x = Math.random() * innerWidth; }
+          starsCtx.globalAlpha = star.a;
+          starsCtx.fillStyle = "#d8f6ff";
+          starsCtx.shadowBlur = 7;
+          starsCtx.shadowColor = "#62eaff";
+          starsCtx.beginPath(); starsCtx.arc(star.x,star.y,star.r,0,Math.PI*2); starsCtx.fill();
+        }
+        starsCtx.globalAlpha = 1; starsCtx.shadowBlur = 0;
+        requestAnimationFrame(animateStars);
+      }
+      function setVolume(value) {
+        volume = Math.max(0,Math.min(100,Number(value)||0));
+        document.getElementById("volumeSlider").value = String(volume);
+        document.getElementById("volumeValue").textContent = `${volume}%`;
+        try { localStorage.setItem("neonVanguardVolume",String(volume)); } catch {}
+        const win = frame.contentWindow;
+        if (win?.__neonMasters) win.__neonMasters.forEach(gain => { gain.gain.value = volume / 100; });
+      }
+      function installAudioControl() {
+        const win = frame.contentWindow;
+        if (!win || win.__neonAudioPatched) return;
+        const NativeContext = win.AudioContext || win.webkitAudioContext;
+        if (!NativeContext) return;
+        win.__neonAudioPatched = true;
+        win.__neonMasters = [];
+        const nativeCreateGain = NativeContext.prototype.createGain;
+        const nativeConnect = win.AudioNode.prototype.connect;
+        const PatchedContext = class extends NativeContext {
+          constructor(...args) {
+            super(...args);
+            this.__neonMaster = nativeCreateGain.call(this);
+            this.__neonMaster.gain.value = volume / 100;
+            nativeConnect.call(this.__neonMaster,this.destination);
+            win.__neonMasters.push(this.__neonMaster);
+          }
+          createGain() {
+            const node = nativeCreateGain.call(this);
+            const connect = node.connect.bind(node);
+            node.connect = (destination,...args) => connect(destination === this.destination ? this.__neonMaster : destination,...args);
+            return node;
+          }
+        };
+        win.AudioContext = PatchedContext;
+        if (win.webkitAudioContext) win.webkitAudioContext = PatchedContext;
+      }
+      function setupGameUi() {
+        const doc = gameDocument();
+        if (!doc || doc.__neonUiReady) return;
+        doc.__neonUiReady = true;
+        const style = doc.createElement("style");
+        style.textContent = `.tabs{display:none!important}.fullscreen-button{display:none!important}.overlay{transition:opacity .35s ease,visibility .35s ease}.panel{animation:neonPanelIn .35s ease both}@keyframes neonPanelIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}`;
+        doc.head.append(style);
+        doc.addEventListener("click",event => {
+          const button = event.target.closest("button");
+          if (!button || !button.id.startsWith("backToHome")) return;
+          event.preventDefault(); event.stopImmediatePropagation();
+          setGameOverlay(false); body.classList.remove("playing"); showScreen(returnScreen);
+        },true);
+        setGameOverlay(false);
+        installAudioControl();
+      }
+      function returnToStart() {
+        body.classList.remove("playing"); deathHandled = false;
+        frame.src = "spaces.html";
+        showScreen("homeScreen");
+      }
+      function startGame() {
+        setupGameUi(); setGameOverlay(true); gameClick("#startButton");
+        setTimeout(() => { setGameOverlay(false); body.classList.add("playing"); showScreen("homeScreen"); },100);
+      }
+      function openGameTab(tab) {
+        returnScreen = tab === "shop" || tab === "custom" ? "shipScreen" : "moreScreen";
+        body.classList.remove("playing"); setupGameUi(); setGameOverlay(true);
+        gameDocument()?.querySelector(`[data-tab="${tab}"]`)?.click();
+        screens.forEach(screen => screen.classList.add("hidden"));
+      }
+      frame.addEventListener("load",setupGameUi);
+      document.getElementById("playButton").addEventListener("click",startGame);
+      document.getElementById("shipButton").addEventListener("click",()=>showScreen("shipScreen"));
+      document.getElementById("moreButton").addEventListener("click",()=>showScreen("moreScreen"));
+      document.querySelectorAll("[data-home]").forEach(button=>button.addEventListener("click",()=>showScreen("homeScreen")));
+      document.querySelectorAll("[data-tab]").forEach(button=>button.addEventListener("click",()=>openGameTab(button.dataset.tab)));
+      document.getElementById("audioButton").addEventListener("click",()=>{previousScreen=body.classList.contains("playing")?"pauseScreen":"homeScreen";showScreen("settingsScreen")});
+      document.getElementById("settingsBack").addEventListener("click",()=>showScreen(previousScreen));
+      document.getElementById("volumeSlider").addEventListener("input",event=>setVolume(event.target.value));
+      setVolume(volume);
+      document.getElementById("fullscreenButton").addEventListener("click",async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen()}catch{}});
+      function pauseGame() {
+        if(!body.classList.contains("playing"))return;
+        gameDocument()?.dispatchEvent(new frame.contentWindow.KeyboardEvent("keydown",{key:"Escape",bubbles:true}));
+        body.classList.remove("playing"); showScreen("pauseScreen");
+      }
+      document.getElementById("pauseButton").addEventListener("click",pauseGame);
+      document.addEventListener("keydown",event=>{if(event.key==="Escape"&&body.classList.contains("playing"))pauseGame()});
+      document.getElementById("resumeButton").addEventListener("click",()=>{setGameOverlay(true);gameClick("#startButton");setTimeout(()=>{setGameOverlay(false);body.classList.add("playing");showScreen("homeScreen")},80)});
+      document.getElementById("quitButton").addEventListener("click",returnToStart);
+      document.getElementById("deathQuitButton").addEventListener("click",returnToStart);
+      document.getElementById("retryButton").addEventListener("click",()=>{deathHandled=false;startGame()});
+      setInterval(()=>{
+        if(!body.classList.contains("playing")||deathHandled)return;
+        const title=gameDocument()?.getElementById("title")?.textContent?.trim();
+        if(title!=="Fim de jogo")return;
+        deathHandled=true;body.classList.remove("playing");
+        document.getElementById("finalScore").textContent=gameDocument()?.getElementById("message")?.textContent||"Sua jornada ainda não terminou.";
+        const explosion=document.getElementById("explosion");
+        document.getElementById("deathCard").hidden=true;
+        explosion.classList.remove("explosion");void explosion.offsetWidth;explosion.classList.add("explosion");
+        showScreen("deathScreen");setTimeout(()=>{document.getElementById("deathCard").hidden=false},850);
+      },120);
+      window.addEventListener("resize",resizeStars);
+      resizeStars();animateStars();showScreen("homeScreen");
+    })();
+  </script>
+</body>
+</html>
